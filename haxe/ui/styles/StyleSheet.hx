@@ -144,7 +144,7 @@ class StyleSheet {
 
     public function buildStyleFor(c:Component, style:Style = null):Style {
         if (style == null) {
-            style = {};
+            style = Style.empty();
         }
         for (r in rules) {
             if (!r.match(c)) {
