@@ -1256,7 +1256,9 @@ class Component extends ComponentImpl
     public var customStyle(get, set):Style;
     private function get_customStyle():Style {
         if (_customStyle == null) {
-            _customStyle = {};
+            // Style.empty(), not `{}` — see Style.empty. A @:structInit literal
+            // here compiles to a 113-argument call, which HashLink's JIT refuses.
+            _customStyle = Style.empty();
         }
         return _customStyle;
     }
@@ -2303,7 +2305,7 @@ class Component extends ComponentImpl
         }
         if (customStyle != null) {
             if (c.customStyle == null) {
-                c.customStyle = {};
+                c.customStyle = Style.empty();
             }
             c.customStyle.apply(customStyle);
         }
