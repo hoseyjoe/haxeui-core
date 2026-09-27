@@ -363,6 +363,9 @@ class ToolTipManager {
         if (x + w > maxX) {
             x = x - w;
         }
+        if (x < 0) {
+            x = 0;
+        }
         if (y + h > maxY) {
             y = _lastMouseEvent.screenY - h - (_toolTip.marginTop / 2);
         }
