@@ -197,12 +197,17 @@ class DragManager {
     }
     #end
 
+    /**
+     * Puts the proxy at mouse position (x, y), in the mouse's own units. The proxy is a root
+     * component, and a root component's left/top are in screen pixels - which is why a dragged
+     * root component's mouse position is multiplied by Toolkit.scaleX/Y below - so at any scale
+     * but 1 the proxy has to be too, or it trails the pointer (a third of the way there at 3x).
+     */
     private function moveProxy(x:Float, y:Float) {
         var proxy = _currentOptions.dragProxy;
         if (proxy == null) return;
-        proxy.left = x + _currentOptions.dragOffsetX;
-        proxy.top = y + _currentOptions.dragOffsetY;
-    }
+        proxy.left = (x + _currentOptions.dragOffsetX) * Toolkit.scaleX;
+        proxy.top = (y + _currentOptions.dragOffsetY) * Toolkit.scaleY;    }
 
     /**
      * Returns the current DragOptions for a given component previously registered
