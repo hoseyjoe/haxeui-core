@@ -69,15 +69,16 @@ private class VerticalSplitterEvents extends SplitterEvents {
             nextCY = nextMaxHeight;
         }
 
-        // bit of a hack to make things look a little nicer
+        // bit of a hack to make things look a little nicer - never drawing a pane that is hidden
+        // (its own flag), which the layout leaves unsized wherever it last was
         if (prevCY <= 0) {
             @:privateAccess prev.handleVisibility(false);
-        } else {
+        } else if (@:privateAccess prev._hidden == false) {
             @:privateAccess prev.handleVisibility(true);
         }
         if (nextCY <= 0) {
             @:privateAccess next.handleVisibility(false);
-        } else {
+        } else if (@:privateAccess next._hidden == false) {
             @:privateAccess next.handleVisibility(true);
         }
 

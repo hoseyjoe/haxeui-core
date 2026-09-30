@@ -80,15 +80,16 @@ private class HorizontalSplitterEvents extends SplitterEvents {
             nextCX = nextMaxWidth;
         }
 
-        // bit of a hack to make things look a little nicer
+        // bit of a hack to make things look a little nicer - never drawing a pane that is hidden
+        // (its own flag), which the layout leaves unsized wherever it last was
         if (prevCX <= 0) {
             @:privateAccess prev.handleVisibility(false);
-        } else {
+        } else if (@:privateAccess prev._hidden == false) {
             @:privateAccess prev.handleVisibility(true);
         }
         if (nextCX <= 0) {
             @:privateAccess next.handleVisibility(false);
-        } else {
+        } else if (@:privateAccess next._hidden == false) {
             @:privateAccess next.handleVisibility(true);
         }
 
