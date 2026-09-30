@@ -1979,9 +1979,14 @@ class Component extends ComponentImpl
 
     private function enforceSizeConstraints() {
         if (style != null) {
-            // enforce min width
+            // enforce min width - an auto-sized component stays auto: writing _width would fix it at
+            // its minimum for good, so it could never grow when its content does (a row whose text
+            // wraps after its first layout overlapped the next row)
             if (style.minWidth != null && _componentWidth < style.minWidth) {
-                _componentWidth = _actualWidth = _width = style.minWidth;
+                _componentWidth = _actualWidth = style.minWidth;
+                if (autoWidth == false) {
+                    _width = style.minWidth;
+                }
             }
             
             // enforce max width
@@ -2006,9 +2011,12 @@ class Component extends ComponentImpl
                 }
             }
             
-            // enforce min height
+            // enforce min height - an auto-sized component stays auto (see min width)
             if (style.minHeight != null && _componentHeight < style.minHeight) {
-                _componentHeight = _actualHeight = _height = style.minHeight;
+                _componentHeight = _actualHeight = style.minHeight;
+                if (autoHeight == false) {
+                    _height = style.minHeight;
+                }
             }
             
             // enforce max height
@@ -2097,15 +2105,26 @@ class Component extends ComponentImpl
         var invalidate:Bool = false;
         if (autoWidth == true || autoHeight == true) {
             var s:Size = layout.calcAutoSize();
+            // A min-width / min-height is a floor under the auto size, applied here so the size is
+            // stable from pass to pass and still grows when the content does (enforceSizeConstraints
+            // leaves an auto-sized component auto).
             if (autoWidth == true) {
-                if (s.width != _componentWidth) {
-                    _componentWidth = s.width;
+                var w = s.width;
+                if (style != null && style.minWidth != null && w < style.minWidth) {
+                    w = style.minWidth;
+                }
+                if (w != _componentWidth) {
+                    _componentWidth = w;
                     invalidate = true;
                 }
             }
             if (autoHeight == true) {
-                if (s.height != _componentHeight) {
-                    _componentHeight = s.height;
+                var h = s.height;
+                if (style != null && style.minHeight != null && h < style.minHeight) {
+                    h = style.minHeight;
+                }
+                if (h != _componentHeight) {
+                    _componentHeight = h;
                     invalidate = true;
                 }
             }
