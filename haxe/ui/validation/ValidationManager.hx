@@ -109,6 +109,16 @@ class ValidationManager {
     private var _profileTot:Float = 0;
     #end
     
+    /** A spinning item for the trace: its class, id and current size. */
+    private static function describeSpinning(item:IValidating):String {
+        var name = Type.getClassName(Type.getClass(item));
+        if (Std.isOfType(item, haxe.ui.core.Component)) {
+            var c:haxe.ui.core.Component = cast item;
+            name += (c.id != null ? '#${c.id}' : "") + ' [${Math.round(c.width)}x${Math.round(c.height)}]';
+        }
+        return name;
+    }
+
     public function process() {
         if (isValidating == true || isPending == false) {
             return;
@@ -138,38 +148,22 @@ class ValidationManager {
         // drawn, the stack does not grow, and the callLater valve below is
         // never reached — an unkillable freeze with no diagnostic of any kind.
         // Assigning Toolkit.theme over a large screen graph is one way in.
-        // The counter turns that freeze into a crash that names the cycle.
-        // Costs one int per pass; the tally allocates only once a pass has
-        // already gone far past anything legitimate.
-        var _spinGuard = 0;
-        var _spinTally:Map<String, Int> = null;
+        // SpinGuard turns that freeze into a crash that names the cycle. It
+        // judges one component coming back again and again, not the length of
+        // the pass: a big screen's first layout (an 800-row outline is ~92,000
+        // validations, none of one component over 26) must finish.
+        var spin = new SpinGuard();
         while (_queue.length > 0) {
             var item:IValidating = _queue.shift();
             if (item.depth < 0) {
                 continue;   //no longer on the display list
             }
-            _spinGuard++;
-            if (_spinGuard > 20000) {
-                var who = _spinTally == null ? []
-                    : [for (k in _spinTally.keys()) '${_spinTally.get(k)} x $k'];
-                who.sort(function(a, b) return a < b ? 1 : -1);
-                trace("[haxeui] VALIDATION SPIN — 20000 validations in one process() pass. "
+            if (spin.count(item)) {
+                trace("[haxeui] VALIDATION SPIN — a component validated " + SpinGuard.LIMIT + " times after "
+                    + SpinGuard.QUIET + " validations in one process() pass (" + spin.total + " in all). "
                     + "Components re-queueing each other, most frequent first:");
-                for (i in 0...(who.length < 25 ? who.length : 25)) trace("  " + who[i]);
+                for (b in spin.busiest(25)) trace("  " + b.count + " x " + describeSpinning(cast b.item));
                 throw "haxeui validation spin (see the list above)";
-            }
-            if (_spinGuard > 400) {
-                // The SIZE is part of the key on purpose: an oscillator shows
-                // up as one component under two alternating sizes, which names
-                // both the culprit and the amplitude in one line.
-                if (_spinTally == null) _spinTally = new Map<String, Int>();
-                var key = Type.getClassName(Type.getClass(item));
-                if (Std.isOfType(item, haxe.ui.core.Component)) {
-                    var c:haxe.ui.core.Component = cast item;
-                    key += (c.id != null ? '#${c.id}' : "")
-                        + ' [${Math.round(c.width)}x${Math.round(c.height)}]';
-                }
-                _spinTally.set(key, (_spinTally.exists(key) ? _spinTally.get(key) : 0) + 1);
             }
             item.validateComponent();
         }
