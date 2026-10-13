@@ -1552,6 +1552,8 @@ class ScrollViewBuilder extends CompositeBuilder {
             }
         }
 
+        // the horizontal scroll may have just come or gone, and with it some usable height
+        usableSize = _component.layout.usableSize;
         if (virtualVertical == false && usableSize.height > 0) {
             var verticalConstraint = _contents;
             var vscroll:VerticalScroll = _component.findComponent(VerticalScroll, false);
