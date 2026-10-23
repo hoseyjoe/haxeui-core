@@ -1515,7 +1515,11 @@ class ComponentBase extends ComponentSurface implements IClonable<ComponentBase>
             // A throw must not leave the component stuck mid-validation, or it never validates
             // again: it is finished as if validated, and comes back when something invalidates it.
             finishValidation();
+            #if cs
+            cs.Syntax.code("throw"); // C#'s bare rethrow keeps the original stack; `throw e` resets it
+            #else
             throw e;
+            #end
         }
         finishValidation();
     }
