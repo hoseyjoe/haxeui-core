@@ -191,7 +191,11 @@ class ValidationManager {
             // A throw must not leave the manager mid-pass: with isValidating stuck, nothing would
             // lay out again. The item that threw has left the queue; the rest wait for the next pass.
             endPass();
+            #if cs
+            cs.Syntax.code("throw"); // C#'s bare rethrow keeps the original stack; `throw e` resets it
+            #else
             throw e;
+            #end
         }
         endPass();
 
