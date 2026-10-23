@@ -499,6 +499,11 @@ class Component extends ComponentImpl
                 trace("WARNING: trying to remove a child (" + childId + ") that is not a child of this component (" + thisId + ")");
                 return child;
             }
+            #if cs
+            if (dispose == true) {
+                releaseFocusWithin(child);
+            }
+            #end
             if (_children.remove(child)) {
                 child.parentComponent = null;
                 child.depth = -1;
@@ -630,7 +635,12 @@ class Component extends ComponentImpl
         if (child == null) {
             return null;
         }
-        
+        #if cs
+        if (dispose == true) {
+            releaseFocusWithin(child);
+        }
+        #end
+
         if (dispose == true) {
             child._isDisposed = true;
             child.removeAllComponents(true);
@@ -748,6 +758,33 @@ class Component extends ComponentImpl
      * @param dispose Decides whether or not the child component should be destroyed too.
      */
     @:dox(group = "Display tree related properties and methods")
+    #if cs
+    /**
+     * A component removed for good quietly stops being anyone's focus, as a browser drops a
+     * removed element's. Kept, the FocusManager would send it FOCUS_OUT on the next focus
+     * change, by then disposed, with listeners that read nulls (haxeui-cs: a text field's late
+     * commit of `null`). Quietly, because an event here would re-enter whatever is tearing the
+     * component down.
+     */
+    private function releaseFocusWithin(child:Component) {
+        var lastFocuses:Map<Component, haxe.ui.focus.IFocusable> = @:privateAccess haxe.ui.focus.FocusManager.instance._lastFocuses;
+        for (root in [for (k in lastFocuses.keys()) k]) {
+            var focused:Dynamic = lastFocuses.get(root);
+            if (!(focused is InteractiveComponent)) {
+                continue;
+            }
+            var c:Component = cast focused;
+            while (c != null && c != child) {
+                c = c.parentComponent;
+            }
+            if (c == child) {
+                lastFocuses.remove(root);
+                @:privateAccess cast(focused, InteractiveComponent)._focus = false;
+            }
+        }
+    }
+    #end
+
     public function removeAllComponents(dispose:Bool = true) {
         if (_compositeBuilder != null) {
             var b = _compositeBuilder.removeAllComponents(dispose);
