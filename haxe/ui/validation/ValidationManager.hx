@@ -119,6 +119,17 @@ class ValidationManager {
         return name;
     }
 
+    private function endPass() {
+        isValidating = false;
+
+        if (_queue.length > 0) { // lets process any stragglers - items maybe have been added while processing other parts
+            isPending = true;
+            Toolkit.callLater(process);
+        } else {
+            isPending = false;
+        }
+    }
+
     public function process() {
         if (isValidating == true || isPending == false) {
             return;
@@ -153,36 +164,37 @@ class ValidationManager {
         // the pass: a big screen's first layout (an 800-row outline is ~92,000
         // validations, none of one component over 26) must finish.
         var spin = new SpinGuard();
-        while (_queue.length > 0) {
-            var item:IValidating = _queue.shift();
-            if (item.depth < 0) {
-                continue;   //no longer on the display list
+        try {
+            while (_queue.length > 0) {
+                var item:IValidating = _queue.shift();
+                if (item.depth < 0) {
+                    continue;   //no longer on the display list
+                }
+                if (spin.count(item)) {
+                    trace("[haxeui] VALIDATION SPIN — a component validated " + SpinGuard.LIMIT + " times after "
+                        + SpinGuard.QUIET + " validations in one process() pass (" + spin.total + " in all). "
+                        + "Components re-queueing each other, most frequent first:");
+                    for (b in spin.busiest(25)) trace("  " + b.count + " x " + describeSpinning(cast b.item));
+                    // A cycle would only spin again on the next pass: drop it, and say so once.
+                    _queue.splice(0, _queue.length);
+                    throw "haxeui validation spin (see the list above)";
+                }
+                item.validateComponent();
             }
-            if (spin.count(item)) {
-                trace("[haxeui] VALIDATION SPIN — a component validated " + SpinGuard.LIMIT + " times after "
-                    + SpinGuard.QUIET + " validations in one process() pass (" + spin.total + " in all). "
-                    + "Components re-queueing each other, most frequent first:");
-                for (b in spin.busiest(25)) trace("  " + b.count + " x " + describeSpinning(cast b.item));
-                throw "haxeui validation spin (see the list above)";
+
+            for (i in 0..._displayQueue.length) {
+                var item = _displayQueue[i];
+                item.updateComponentDisplay();
             }
-            item.validateComponent();
+            _displayQueue.splice(0, _displayQueue.length);
+        } catch (e:haxe.Exception) {
+            // A throw must not leave the manager mid-pass: with isValidating stuck, nothing would
+            // lay out again. The item that threw has left the queue; the rest wait for the next pass.
+            endPass();
+            throw e;
         }
+        endPass();
 
-        for (i in 0..._displayQueue.length) {
-            var item = _displayQueue[i];
-            item.updateComponentDisplay();
-        }
-        _displayQueue.splice(0, _displayQueue.length);
-
-        isValidating = false;
-        
-        if (_queue.length > 0) { // lets process any stragglers - items maybe have been added while processing other parts
-            isPending = true;
-            Toolkit.callLater(process);
-        } else {
-            isPending = false;
-        }
-        
 
         #if profile_validation
         _profileCount++;

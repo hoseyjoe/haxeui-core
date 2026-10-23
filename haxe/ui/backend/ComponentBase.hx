@@ -1508,9 +1508,19 @@ class ComponentBase extends ComponentSurface implements IClonable<ComponentBase>
 
         _isValidating = true;
 
-        validateComponentInternal(nextFrame);
-        validateInitialSize(isInitialized);
+        try {
+            validateComponentInternal(nextFrame);
+            validateInitialSize(isInitialized);
+        } catch (e:haxe.Exception) {
+            // A throw must not leave the component stuck mid-validation, or it never validates
+            // again: it is finished as if validated, and comes back when something invalidates it.
+            finishValidation();
+            throw e;
+        }
+        finishValidation();
+    }
 
+    private function finishValidation() {
         #if (haxe_ver < 4)
         _invalidationFlags = new Map<String, Bool>();
         #else
