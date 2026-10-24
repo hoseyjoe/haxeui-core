@@ -752,12 +752,6 @@ class Component extends ComponentImpl
         }
     }
 
-    /**
-     * Removes all child component from this component's display tree.
-     * 
-     * @param dispose Decides whether or not the child component should be destroyed too.
-     */
-    @:dox(group = "Display tree related properties and methods")
     #if cs
     /**
      * A component removed for good quietly stops being anyone's focus, as a browser drops a
@@ -785,6 +779,12 @@ class Component extends ComponentImpl
     }
     #end
 
+    /**
+     * Removes all child component from this component's display tree.
+     * 
+     * @param dispose Decides whether or not the child component should be destroyed too.
+     */
+    @:dox(group = "Display tree related properties and methods")
     public function removeAllComponents(dispose:Bool = true) {
         if (_compositeBuilder != null) {
             var b = _compositeBuilder.removeAllComponents(dispose);
