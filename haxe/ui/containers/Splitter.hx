@@ -138,6 +138,8 @@ class SplitterEvents extends haxe.ui.events.Events {
         Screen.instance.unregisterEvent(MouseEvent.MOUSE_UP, onScreenMouseUp);
         #if haxeui_html5
         js.Browser.document.body.style.cursor = null;
+        #elseif haxeui_cs
+        haxe.ui.backend.cs.ScreenCursor.clear();
         #end
     }
 }

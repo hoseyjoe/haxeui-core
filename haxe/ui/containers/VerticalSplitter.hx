@@ -22,6 +22,8 @@ private class VerticalSplitterEvents extends SplitterEvents {
         super.onGripperMouseDown(event);
         #if haxeui_html5
         js.Browser.document.body.style.cursor = "row-resize";
+        #elseif haxeui_cs
+        haxe.ui.backend.cs.ScreenCursor.set("row-resize");
         #end
     }
 
