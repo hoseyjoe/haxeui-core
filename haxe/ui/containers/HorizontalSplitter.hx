@@ -22,6 +22,8 @@ private class HorizontalSplitterEvents extends SplitterEvents {
         super.onGripperMouseDown(event);
         #if haxeui_html5
         js.Browser.document.body.style.cursor = "col-resize";
+        #elseif haxeui_cs
+        haxe.ui.backend.cs.ScreenCursor.set("col-resize");
         #end
     }
 
