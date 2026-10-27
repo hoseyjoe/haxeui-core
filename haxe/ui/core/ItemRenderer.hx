@@ -162,7 +162,7 @@ class ItemRenderer extends Box {
         }
         
         if (parentComponent != null) {
-            parentComponent.assignPositionClasses();
+            parentComponent.checkPositionClasses(); // new data never moves the first or last
         }
 
         onDataChanged(_data);
