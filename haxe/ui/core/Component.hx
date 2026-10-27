@@ -365,7 +365,7 @@ class Component extends ComponentImpl
             child.ready();
         }
 
-        assignPositionClasses();
+        childPositionEntered(child, _children.length - 1);
         invalidateComponentLayout();
         if (disabled) {
             child.disabled = true;
@@ -445,7 +445,8 @@ class Component extends ComponentImpl
             child.ready();
         }
 
-        assignPositionClasses();
+        // insert appends past the end, and counts a negative index from it
+        childPositionEntered(child, index < 0 ? _children.indexOf(child) : (index < _children.length ? index : _children.length - 1));
         invalidateComponentLayout();
         if (disabled) {
             child.disabled = true;
@@ -486,8 +487,10 @@ class Component extends ComponentImpl
             }
         }
 
+        var index = -1;
         if (_children != null) {
-            if (_children.indexOf(child) == -1) {
+            index = _children.indexOf(child);
+            if (index == -1) {
                 var childId = child.className;
                 if (child.id != null) {
                     childId += "#" + child.id;
@@ -518,7 +521,9 @@ class Component extends ComponentImpl
         }
 
         handleRemoveComponent(child, dispose);
-        assignPositionClasses(invalidate);
+        if (index != -1) {
+            childPositionLeft(child, index, true, invalidate);
+        }
         if (_children != null && invalidate == true) {
             invalidateComponentLayout();
         }
@@ -570,6 +575,9 @@ class Component extends ComponentImpl
                 child.disposeComponent();
             }
         }
+        _positionsKnown = false;
+        _firstPositioned = null;
+        _lastPositioned = null;
 
         this.destroyComponent();
         this.unregisterEventsInternal();
@@ -658,8 +666,8 @@ class Component extends ComponentImpl
             child.destroyComponent();
             child.unregisterEventsInternal();
         }
-        
-        assignPositionClasses(invalidate);
+
+        childPositionLeft(child, index, true, invalidate);
         if (invalidate == true) {
             invalidateComponentLayout();
         }
@@ -678,31 +686,182 @@ class Component extends ComponentImpl
     private function onComponentRemoved(child:Component) {
     }
 
+    /*
+     * The "first" and "last" classes. The first and last children in the layout (those whose own
+     * `includeInLayout` is true, so not hidden themselves) carry them, one child both, and the other
+     * children in the layout neither. Children out of the layout keep what they had, except that an
+     * end that leaves the layout loses its classes.
+     *
+     * Setting them used to walk every child on every add and removal and every item renderer's data
+     * change, so filling or refreshing a container of n children was O(n²). Now one walk remembers
+     * the two ends, and from then on a child coming, going, moving, hiding or showing updates only
+     * the old and new ends; a data change does nothing. Only that walk makes the ends known, so a
+     * container that overrides assignPositionClasses to do nothing stays out of the classes.
+     *
+     * A child under a hidden ancestor is in the layout here (the walk used to skip it, via
+     * `hidden`), so a container filled while hidden has its classes when shown.
+     */
+    private static var POSITION_CLASSES:Array<String> = ["first", "last"];
+    @:noCompletion private var _positionsKnown:Bool = false;
+    @:noCompletion private var _firstPositioned:Component = null;
+    @:noCompletion private var _lastPositioned:Component = null;
+
     private function assignPositionClasses(invalidate:Bool = true) {
-        var effectiveChildren = [];
+        var first:Component = null;
+        var last:Component = null;
         for (c in childComponents) {
-            if (!c.includeInLayout || c.hidden) {
-                continue;
+            if (c.includeInLayout) {
+                if (first == null) {
+                    first = c;
+                }
+                last = c;
             }
-            effectiveChildren.push(c);
+        }
+        for (c in childComponents) {
+            if (c != first && c != last && c.includeInLayout) {
+                c.removeClasses(POSITION_CLASSES, invalidate);
+            }
         }
 
-        if (effectiveChildren.length == 1) {
-            effectiveChildren[0].addClasses(["first", "last"], invalidate);
+        _firstPositioned = null;
+        _lastPositioned = null;
+        setPositionEnds(first, last, invalidate);
+        _positionsKnown = true;
+    }
+
+    /**
+     * Assigns the first and last classes if no walk has yet, as after a move the ends could not follow.
+     */
+    private function checkPositionClasses() {
+        if (!_positionsKnown) {
+            assignPositionClasses();
+        }
+    }
+
+    // `child`, now at `index`, may have come into the layout: added, moved, shown or included.
+    private function childPositionEntered(child:Component, index:Int, invalidate:Bool = true) {
+        if (!_positionsKnown) {
+            assignPositionClasses(invalidate);
+            return;
+        }
+        if (!child.includeInLayout) {
             return;
         }
 
-        var n = 0;
-        for (c in effectiveChildren) {
-            if (n == 0) {
-                c.swapClass("first", "last", invalidate);
-            } else if (n == effectiveChildren.length - 1) {
-                c.swapClass("last", "first", invalidate);
-            } else {
-                c.removeClasses(["first", "last"], invalidate);
+        var first = _firstPositioned;
+        var last = _lastPositioned;
+        if (first == null) {
+            first = last = child;
+        } else if (index == _children.length - 1) {
+            last = child;
+        } else if (index == 0) {
+            first = child;
+        } else {
+            var firstIndex = _children.indexOf(first);
+            var lastIndex = _children.indexOf(last);
+            if (firstIndex == -1 || lastIndex == -1) {
+                assignPositionClasses(invalidate);
+                return;
             }
+            if (index < firstIndex) {
+                first = child;
+            } else if (index > lastIndex) {
+                last = child;
+            } else {
+                child.removeClasses(POSITION_CLASSES, invalidate);
+                return;
+            }
+        }
+        setPositionEnds(first, last, invalidate);
+    }
 
-            n++;
+    // `child`, which was at `index`, may have left the layout: removed (`gone`, no longer in the
+    // children), moved, hidden or left out. A child that has gone keeps its classes.
+    private function childPositionLeft(child:Component, index:Int, gone:Bool, invalidate:Bool = true) {
+        if (!_positionsKnown) {
+            assignPositionClasses(invalidate);
+            return;
+        }
+
+        var first = _firstPositioned;
+        var last = _lastPositioned;
+        if (child != first && child != last) {
+            return;
+        }
+        if (gone) {
+            if (_firstPositioned == child) {
+                _firstPositioned = null;
+            }
+            if (_lastPositioned == child) {
+                _lastPositioned = null;
+            }
+        }
+
+        if (child == first && child == last) {
+            first = last = null;
+        } else if (child == first) {
+            first = null;
+            var i = gone ? index : index + 1;
+            while (first == null && i < _children.length) {
+                var c = _children[i++];
+                if (c.includeInLayout) {
+                    first = c;
+                }
+            }
+        } else {
+            last = null;
+            var i = index - 1;
+            while (last == null && i >= 0) {
+                var c = _children[i--];
+                if (c.includeInLayout) {
+                    last = c;
+                }
+            }
+        }
+        if (first == null && last != null || last == null && first != null) { // the ends were not what was known
+            assignPositionClasses(invalidate);
+            return;
+        }
+        setPositionEnds(first, last, invalidate);
+    }
+
+    // Makes `first` and `last` the ends, taking the classes from former ends that no longer are.
+    private function setPositionEnds(first:Component, last:Component, invalidate:Bool) {
+        var oldFirst = _firstPositioned;
+        var oldLast = _lastPositioned;
+        _firstPositioned = first;
+        _lastPositioned = last;
+        if (oldFirst != null && oldFirst != first && oldFirst != last) {
+            oldFirst.removeClasses(POSITION_CLASSES, invalidate);
+        }
+        if (oldLast != null && oldLast != oldFirst && oldLast != first && oldLast != last) {
+            oldLast.removeClasses(POSITION_CLASSES, invalidate);
+        }
+
+        if (first == null) {
+        } else if (first == last) {
+            first.addClasses(POSITION_CLASSES, invalidate);
+        } else {
+            first.swapClass("first", "last", invalidate);
+            last.swapClass("last", "first", invalidate);
+        }
+    }
+
+    // This component's own hidden or includeInLayout changed: it may have come into or left its
+    // parent's layout, moving the parent's ends.
+    private function positionInLayoutChanged(wasInLayout:Bool) {
+        var parent = parentComponent;
+        if (parent == null || parent._children == null || wasInLayout == includeInLayout) {
+            return;
+        }
+        var index = parent._children.indexOf(this);
+        if (index == -1) { // TabView gives its pages a parent before adding them
+            return;
+        }
+        if (wasInLayout) {
+            parent.childPositionLeft(this, index, false);
+        } else {
+            parent.childPositionEntered(this, index);
         }
     }
 
@@ -1055,8 +1214,17 @@ class Component extends ComponentImpl
 
         if (index >= 0 && index <= _children.length && child.parentComponent == this) {
             handleSetComponentIndex(child, index);
+            var oldIndex = _children.indexOf(child);
             _children.remove(child);
+            var newIndex = index < _children.length ? index : _children.length;
+            var moves = oldIndex != newIndex && child.includeInLayout;
+            if (moves && oldIndex != -1) {
+                childPositionLeft(child, oldIndex, true);
+            }
             _children.insert(index, child);
+            if (moves) {
+                childPositionEntered(child, newIndex);
+            }
             invalidateComponentLayout();
         }
         return child;
@@ -1094,11 +1262,13 @@ class Component extends ComponentImpl
         }
 
         if (_hidden == false) {
+            var wasInLayout = includeInLayout;
             _hidden = true;
             handleVisibility(false);
             if (parentComponent != null) {
                 parentComponent.invalidateComponentLayout();
             }
+            positionInLayoutChanged(wasInLayout);
 
             dispatchRecursively(new UIEvent(UIEvent.HIDDEN));
         }
@@ -1113,11 +1283,13 @@ class Component extends ComponentImpl
         }
 
         if (_hidden == false) {
+            var wasInLayout = includeInLayout;
             _hidden = true;
             handleVisibility(false);
             if (parentComponent != null) {
                 parentComponent.invalidateComponentLayout();
             }
+            positionInLayoutChanged(wasInLayout);
 
             if (dispatchChildren == true) {
                 dispatchRecursively(new UIEvent(UIEvent.HIDDEN));
@@ -1144,6 +1316,7 @@ class Component extends ComponentImpl
         }
 
         if (_hidden == true) {
+            var wasInLayout = includeInLayout;
             _hidden = false;
             handleVisibility(true);
             invalidateComponentLayout(_invalidateRecursivelyOnShow);
@@ -1151,6 +1324,7 @@ class Component extends ComponentImpl
             if (parentComponent != null) {
                 parentComponent.invalidateComponentLayout();
             }
+            positionInLayoutChanged(wasInLayout);
 
             dispatchRecursively(new UIEvent(UIEvent.SHOWN));
         }
@@ -1165,12 +1339,14 @@ class Component extends ComponentImpl
         }
 
         if (_hidden == true) {
+            var wasInLayout = includeInLayout;
             _hidden = false;
             handleVisibility(true);
             invalidateComponentLayout();
             if (parentComponent != null) {
                 parentComponent.invalidateComponentLayout();
             }
+            positionInLayoutChanged(wasInLayout);
 
             if (dispatchChildren == true) {
                 dispatchRecursively(new UIEvent(UIEvent.SHOWN));
@@ -1651,7 +1827,12 @@ class Component extends ComponentImpl
         return _includeInLayout;
     }
     private function set_includeInLayout(value:Bool):Bool {
+        if (value == _includeInLayout) {
+            return value;
+        }
+        var wasInLayout = includeInLayout;
         _includeInLayout = value;
+        positionInLayoutChanged(wasInLayout);
         return value;
     }
 
