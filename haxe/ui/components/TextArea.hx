@@ -3,6 +3,7 @@ package haxe.ui.components;
 import haxe.ui.behaviours.Behaviour;
 import haxe.ui.behaviours.DataBehaviour;
 import haxe.ui.behaviours.DefaultBehaviour;
+import haxe.ui.behaviours.ValueBehaviour;
 import haxe.ui.core.Component;
 import haxe.ui.core.CompositeBuilder;
 import haxe.ui.core.ICompositeInteractiveComponent;
@@ -89,6 +90,21 @@ class TextArea extends InteractiveComponent implements IFocusable implements ICo
         Scrolls to the bottom of the text area
     **/
     @:call(ScrollToBottom)                  public function scrollToBottom();
+
+    /**
+        The caret's position in `text` itself, with no wrapping counted.
+    **/
+    @:clonable @:behaviour(CaretIndexBehaviour)             public var caretIndex:Int;
+
+    /**
+        Where the selection starts in `text`. Set this, then `selectionEndIndex`.
+    **/
+    @:clonable @:behaviour(SelectionStartIndexBehaviour)    public var selectionStartIndex:Int;
+
+    /**
+        Where the selection ends in `text`. Set `selectionStartIndex` first.
+    **/
+    @:clonable @:behaviour(SelectionEndIndexBehaviour)      public var selectionEndIndex:Int;
 
     @:clonable @:behaviour(IconBehaviour)   public var icon:String;
     @:style(layout)                         public var iconPosition:String;
@@ -369,6 +385,42 @@ private class ScrollToBottom extends Behaviour {
             vscroll.pos = vscroll.max;
         }
         return null;
+    }
+}
+
+@:dox(hide) @:noCompletion
+private class CaretIndexBehaviour extends ValueBehaviour {
+    public override function get():Variant {
+        return _component.getTextInput().caretIndex;
+    }
+    public override function set(value:Variant) {
+        super.set(value);
+        _component.syncComponentValidation();
+        _component.getTextInput().caretIndex = value;
+    }
+}
+
+@:dox(hide) @:noCompletion
+private class SelectionStartIndexBehaviour extends ValueBehaviour {
+    public override function get():Variant {
+        return _component.getTextInput().selectionStartIndex;
+    }
+    public override function set(value:Variant) {
+        super.set(value);
+        _component.syncComponentValidation();
+        _component.getTextInput().selectionStartIndex = value;
+    }
+}
+
+@:dox(hide) @:noCompletion
+private class SelectionEndIndexBehaviour extends ValueBehaviour {
+    public override function get():Variant {
+        return _component.getTextInput().selectionEndIndex;
+    }
+    public override function set(value:Variant) {
+        super.set(value);
+        _component.syncComponentValidation();
+        _component.getTextInput().selectionEndIndex = value;
     }
 }
 
