@@ -117,6 +117,22 @@ class TextArea extends InteractiveComponent implements IFocusable implements ICo
         return StringTools.trim(text).length == 0;
     }
 
+    /**
+        Sets `text` to `value` exactly as given, as typing does. Setting `text` reads a value
+        holding `{{` and `}}` as a translation to look up; this never does, and drops any
+        translation `text` had, so text a person wrote stays as written.
+    **/
+    public function setLiteralText(value:String):String {
+        haxe.ui.locale.LocaleManager.instance.unregisterComponentProperty(this, "text");
+        if (behaviours == null) {
+            behaviours = new haxe.ui.behaviours.Behaviours(this);
+            registerBehaviours();
+        }
+        behaviours.set("text", value);
+        dispatch(new UIEvent(UIEvent.PROPERTY_CHANGE, "text"));
+        return value;
+    }
+
     //***********************************************************************************************************
     // Validation
     //***********************************************************************************************************
@@ -544,7 +560,7 @@ private class Events extends haxe.ui.events.Events {
                     if (text == null) {
                         text = "";
                     }
-                    _textarea.text = text;
+                    _textarea.setLiteralText(text); // typed text is never a translation
                     _textarea.dispatch(new UIEvent(UIEvent.CHANGE));
                     @:privateAccess _textarea.applyAutoHeight();
 
