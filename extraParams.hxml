@@ -1,1 +1,2 @@
 -D haxeui
+--macro haxe.ui.macros.CacheMacros.init()

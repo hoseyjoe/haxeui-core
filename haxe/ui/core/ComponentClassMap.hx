@@ -1,6 +1,7 @@
 package haxe.ui.core;
 
 class ComponentClassMap {
+    @:persistent
     private static var _instance:ComponentClassMap;
     public static var instance(get, never):ComponentClassMap;
     private static function get_instance():ComponentClassMap {
@@ -35,6 +36,17 @@ class ComponentClassMap {
     public static function clear() {
         instance._map = new Map<String, String>();
     }
+
+    #if macro
+    // Writes the whole map as the "haxeui_classmap" resource. Each registration saves the map as it stands,
+    // and a compilation server gives a cached class back the copy it saved part-way through an earlier
+    // build, so the last word has to be written again once typing is over (see CacheMacros).
+    public static function saveResource() {
+        if (_instance != null) {
+            _instance.save();
+        }
+    }
+    #end
 
     public static function hasClass(className:String):Bool {
         return instance.hasClassName(className);
