@@ -185,12 +185,15 @@ private class SelectedIndexBehaviour extends DataBehaviour {
             super.set(value);
             return;
         }
+        var handler:IDropDownHandler = cast(_component._compositeBuilder, DropDownBuilder).handler;
         if (value == get()) {
+            // the same index, but the rows may have changed under it (filled after the index was
+            // set, or cleared and refilled): the handler draws the row there if it is not the one showing
+            handler.selectedIndex = value;
             return;
         }
         _value = value;
         invalidateData();
-        var handler:IDropDownHandler = cast(_component._compositeBuilder, DropDownBuilder).handler;
         handler.selectedIndex = _value;
     }
 }
